@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package user.v1;
+option go_package = "github.com/MikeMC777/ordenes-ecom/internal/userpb;userpb";
+
+message CreateUserRequest {
+  string username = 1;
+  string email    = 2;
+  string password = 3;
+}
+
+message UpdateUserRequest {
+  string id       = 1;  // requerido
+  string username = 2;  // opcional: si viene vacío, no cambia
+  string email    = 3;  // opcional
+  string password = 4;  // opcional (si viene, se re-hashea)
+}
+
+message DeleteUserRequest { string id = 1; }
+message DeleteUserResponse { bool deleted = 1; }
+
+message GetUserRequest { string id = 1; }
+
+message User {
+  string id         = 1;
+  string username   = 2;
+  string email      = 3;
+  string created_at = 4;
+}
+
+message UserResponse { User user = 1; }
+
+message AuthRequest {
+  string email    = 1;
+  string password = 2;
+}
+message AuthResponse {
+  string user_id = 1;
+  bool ok        = 2;
+}
+
+message ValidateUserRequest { string id = 1; }
+message ValidateUserResponse { bool ok = 1; }
+
+service UserService {
+  rpc CreateUser(CreateUserRequest) returns (UserResponse);
+  rpc GetUser(GetUserRequest) returns (UserResponse);
+  rpc UpdateUser(UpdateUserRequest) returns (UserResponse);
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
+  rpc AuthenticateUser(AuthRequest) returns (AuthResponse);
+  rpc ValidateUser(ValidateUserRequest) returns (ValidateUserResponse);
+}
