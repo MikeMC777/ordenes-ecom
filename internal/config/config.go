@@ -8,8 +8,10 @@ import (
 )
 
 type Config struct {
-	UserSvcAddr string
-	PostgresDSN string
+	UserSvcAddr       string
+	ProductSvcAddr    string
+	ProductSvcBaseURL string
+	PostgresDSN       string
 }
 
 func getenv(k, def string) string {
@@ -22,9 +24,12 @@ func getenv(k, def string) string {
 func Load() Config {
 	_ = godotenv.Load() // carga .env si existe
 	cfg := Config{
-		UserSvcAddr: getenv("USER_SERVICE_ADDR", "localhost:50051"),
-		PostgresDSN: getenv("POSTGRES_DSN", "postgres://user:pass@localhost:5432/ordenesdb?sslmode=disable"),
+		UserSvcAddr:       getenv("USER_SERVICE_ADDR", "localhost:50051"),
+		ProductSvcAddr:    getenv("PRODUCT_SERVICE_ADDR", ":8081"),
+		ProductSvcBaseURL: getenv("PRODUCT_SERVICE_BASEURL", "http://localhost:8081"),
+		PostgresDSN:       getenv("POSTGRES_DSN", "postgres://user:pass@localhost:5432/ordenesdb?sslmode=disable"),
 	}
 	log.Printf("[config] USER_SERVICE_ADDR=%s", cfg.UserSvcAddr)
+	log.Printf("[config] PRODUCT_SERVICE_ADDR=%s", cfg.ProductSvcAddr)
 	return cfg
 }
