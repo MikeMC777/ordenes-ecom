@@ -34,7 +34,7 @@ func (r *PGRepo) Create(ctx context.Context, u *User) error {
 		VALUES ($1,$2,$3,$4,NOW(),NOW())
 	`, u.ID, u.Username, u.Email, u.PasswordHash)
 	if err != nil {
-		// simplificado: el evaluador verá UNIQUE en username/email
+		// simplified: the evaluator will see UNIQUE in username/email
 		return ErrAlreadyExist
 	}
 	return nil

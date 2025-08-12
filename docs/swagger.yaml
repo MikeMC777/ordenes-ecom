@@ -1,0 +1,256 @@
+basePath: /
+definitions:
+  product.CreateProductRequest:
+    properties:
+      description:
+        example: RGB 60%
+        type: string
+      name:
+        example: Mecanical Keyboard
+        type: string
+      price:
+        example: "199.90"
+        type: string
+      stock:
+        example: 10
+        type: integer
+    type: object
+  product.HTTPError:
+    properties:
+      error:
+        description: |-
+          Error message
+          example: not found
+        type: string
+    type: object
+  product.ListResponse:
+    properties:
+      items:
+        description: total items found
+        items:
+          $ref: '#/definitions/product.Product'
+        type: array
+      limit:
+        description: limit applied
+        type: integer
+      offset:
+        description: offset applied
+        type: integer
+      q:
+        description: search query applied
+        type: string
+    type: object
+  product.Product:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      price:
+        description: We store price as a string to avoid rounding errors (NUMERIC
+          in Postgres)
+        type: string
+      stock:
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  product.UpdateProductRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      price:
+        type: string
+      stock:
+        type: integer
+    type: object
+info:
+  contact: {}
+  description: REST API for product management (listing, search, CRUD).
+  title: Product Service API
+  version: "1.0"
+paths:
+  /products:
+    get:
+      description: Returns a paginated list ordered by creation date. No search filter
+        applied.
+      parameters:
+      - default: 20
+        description: Limit (1-100)
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset (>=0)
+        in: query
+        minimum: 0
+        name: offset
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/product.ListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/product.HTTPError'
+      summary: List products (pagination only)
+      tags:
+      - products
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: name (req), price (req), description, stock
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/product.CreateProductRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/product.Product'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/product.HTTPError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/product.HTTPError'
+      summary: Create product
+      tags:
+      - products
+  /products/{id}:
+    delete:
+      description: Deletes a product by its ID (UUID).
+      parameters:
+      - description: Product ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/product.HTTPError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/product.HTTPError'
+      summary: Delete product by ID
+      tags:
+      - products
+    get:
+      parameters:
+      - description: Product ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/product.Product'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/product.HTTPError'
+      summary: Get product by ID
+      tags:
+      - products
+    put:
+      consumes:
+      - application/json
+      description: If 'price' is not provided, it is not modified. Empty fields do
+        not change.
+      parameters:
+      - description: Product ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: name, description, price, stock
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/product.UpdateProductRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/product.Product'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/product.HTTPError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/product.HTTPError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/product.HTTPError'
+      summary: Update product (partial)
+      tags:
+      - products
+  /products/search:
+    get:
+      description: Returns a paginated list filtered by 'q' on name/description (ILIKE).
+      parameters:
+      - description: Search text (min 2 chars)
+        in: query
+        name: q
+        required: true
+        type: string
+      - default: 20
+        description: Limit (1-100)
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset (>=0)
+        in: query
+        minimum: 0
+        name: offset
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/product.ListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/product.HTTPError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/product.HTTPError'
+      summary: Search products (pagination + query)
+      tags:
+      - products
+swagger: "2.0"

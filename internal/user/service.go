@@ -83,15 +83,15 @@ func (s *Service) UpdateUser(ctx context.Context, in *pb.UpdateUserRequest) (*pb
 
 	u := &User{
 		ID:           in.GetId(),
-		Username:     in.GetUsername(), // vacío => no cambia
-		Email:        in.GetEmail(),    // vacío => no cambia
-		PasswordHash: newHash,          // vacío => no cambia
+		Username:     in.GetUsername(), // empty => no change
+		Email:        in.GetEmail(),    // empty => no change
+		PasswordHash: newHash,          // empty => no change
 	}
 	if err := s.repo.Update(ctx, u, updatePassword); err != nil {
 		return nil, status.Errorf(codes.Internal, "update error: %v", err)
 	}
 
-	// Devolver el estado actual
+	// Return the current status
 	out, err := s.repo.GetByID(ctx, in.GetId())
 	if err != nil {
 		if err == ErrNotFound {
@@ -120,7 +120,7 @@ func (s *Service) DeleteUser(ctx context.Context, in *pb.DeleteUserRequest) (*pb
 	return &pb.DeleteUserResponse{Deleted: true}, nil
 }
 
-// AuthenticateUser (renombrado)
+// AuthenticateUser (renamed)
 func (s *Service) AuthenticateUser(ctx context.Context, in *pb.AuthRequest) (*pb.AuthResponse, error) {
 	if in.GetEmail() == "" || in.GetPassword() == "" {
 		return nil, status.Error(codes.InvalidArgument, "email and password are required")
@@ -136,7 +136,7 @@ func (s *Service) AuthenticateUser(ctx context.Context, in *pb.AuthRequest) (*pb
 	return &pb.AuthResponse{UserId: u.ID, Ok: ok}, nil
 }
 
-// ValidateUser (existe por ID)
+// ValidateUser (exists by ID)
 func (s *Service) ValidateUser(ctx context.Context, in *pb.ValidateUserRequest) (*pb.ValidateUserResponse, error) {
 	if in.GetId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "id is required")
@@ -151,5 +151,5 @@ func (s *Service) ValidateUser(ctx context.Context, in *pb.ValidateUserRequest) 
 	return &pb.ValidateUserResponse{Ok: true}, nil
 }
 
-// Helper para crear repo desde pool (por si quieres inyectar afuera)
+// Helper to create repo from pool (in case you want to inject outside)
 func NewRepoFromPool(pool *pgxpool.Pool) Repository { return NewPGRepo(pool) }
