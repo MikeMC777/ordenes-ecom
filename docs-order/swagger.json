@@ -1,8 +1,8 @@
 {
     "swagger": "2.0",
     "info": {
-        "description": "REST API for product management (listing, search, CRUD).",
-        "title": "Product Service API",
+        "description": "REST API for order lifecycle (create, query).",
+        "title": "Order Service API",
         "contact": {},
         "version": "1.0"
     },

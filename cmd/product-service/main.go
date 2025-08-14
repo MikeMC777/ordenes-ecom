@@ -183,6 +183,11 @@ func updateProductHandler(repo product.Repository) gin.HandlerFunc {
 			Price:       in.Price,
 			Stock:       in.Stock,
 		}
+
+		if in.Stock < 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "stock must be >= 0"})
+			return
+		}
 		if err := repo.Update(c.Request.Context(), p, updatePrice); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "update error"})
 			return
@@ -261,7 +266,7 @@ func main() {
 	// Create
 	r.POST("/products", createProductHandler(repo))
 
-	//Update
+	// Update
 	r.PUT("/products/:id", updateProductHandler(repo))
 
 	// Delete
