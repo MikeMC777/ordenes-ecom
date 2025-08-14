@@ -96,8 +96,8 @@ definitions:
     type: object
 info:
   contact: {}
-  description: REST API for product management (listing, search, CRUD).
-  title: Product Service API
+  description: REST API for order lifecycle (create, query).
+  title: Order Service API
   version: "1.0"
 paths:
   /orders:

@@ -1,4 +1,3 @@
-// File: internal/product/repo.go
 // Package product provides the repository interface and PostgreSQL implementation for managing products.
 package product
 
@@ -8,11 +7,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var (
-	ErrNotFound = errors.New("product not found")
+	ErrNotFound          = errors.New("product not found")
+	ErrInsufficientStock = errors.New("insufficient stock")
 )
 
 type Query struct {
@@ -27,6 +28,9 @@ type Repository interface {
 	List(ctx context.Context, q Query) ([]Product, error)
 	Update(ctx context.Context, p *Product, updatePrice bool) error
 	Delete(ctx context.Context, id string) (bool, error)
+
+	DecrementStock(ctx context.Context, id string, qty int) (int, error)
+	IncrementStock(ctx context.Context, id string, qty int) (int, error)
 }
 
 type PGRepo struct{ db *pgxpool.Pool }
@@ -134,4 +138,50 @@ func (r *PGRepo) Delete(ctx context.Context, id string) (bool, error) {
 		return false, err
 	}
 	return cmd.RowsAffected() > 0, nil
+}
+
+func (r *PGRepo) DecrementStock(ctx context.Context, id string, qty int) (int, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	var remaining int
+	err := r.db.QueryRow(ctx, `
+		UPDATE products
+		SET stock = stock - $2, updated_at = NOW()
+		WHERE id=$1 AND stock >= $2
+		RETURNING stock
+	`, id, qty).Scan(&remaining)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			// ¿existe?
+			var exists bool
+			_ = r.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM products WHERE id=$1)`, id).Scan(&exists)
+			if exists {
+				return 0, ErrInsufficientStock
+			}
+			return 0, ErrNotFound
+		}
+		return 0, err
+	}
+	return remaining, nil
+}
+
+func (r *PGRepo) IncrementStock(ctx context.Context, id string, qty int) (int, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	var remaining int
+	err := r.db.QueryRow(ctx, `
+		UPDATE products
+		SET stock = stock + $2, updated_at = NOW()
+		WHERE id=$1
+		RETURNING stock
+	`, id, qty).Scan(&remaining)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, ErrNotFound
+		}
+		return 0, err
+	}
+	return remaining, nil
 }

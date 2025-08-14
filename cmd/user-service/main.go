@@ -23,7 +23,7 @@ import (
 func main() {
 	cfg := config.Load()
 
-	// Conexión a Postgres
+	// Connection to Postgres
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -49,12 +49,12 @@ func main() {
 
 	pb.RegisterUserServiceServer(server, service)
 
-	// Salud gRPC y reflexión (útil para grpcurl)
+	// gRPC health and reflexion
 	hs := health.NewServer()
 	healthpb.RegisterHealthServer(server, hs)
 	reflection.Register(server)
 
-	// Shutdown gracioso
+	// Gracefully Shutdown
 	go func() {
 		log.Printf("[grpc] listening on %s", cfg.UserSvcAddr)
 		if err := server.Serve(lis); err != nil {
