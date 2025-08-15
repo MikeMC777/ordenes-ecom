@@ -23,6 +23,7 @@ import (
 
 	_ "github.com/MikeMC777/ordenes-ecom/docs-order"
 	"github.com/MikeMC777/ordenes-ecom/internal/config"
+	"github.com/MikeMC777/ordenes-ecom/internal/httpx"
 	ord "github.com/MikeMC777/ordenes-ecom/internal/order"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -310,8 +311,8 @@ func main() {
 
 	// Gin
 	r := gin.New()
-	r.Use(gin.Logger(), gin.Recovery())
 	r.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	r.Use(httpx.RequestID(), httpx.Logger(), gin.Recovery())
 
 	// Health
 	r.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })

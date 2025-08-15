@@ -47,7 +47,7 @@ func NewExt(userAddr, productBaseURL string) (*Ext, error) {
 func (e *Ext) FetchProduct(ctx context.Context, id string) (*ProductDTO, error) {
 	url := e.ProductBaseURL + "/products/" + id
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	res, err := e.HTTP.Do(req)
+	res, err := e.doWithRetry(req)
 	if err != nil {
 		return nil, fmt.Errorf("fetch %s: http error: %w", url, err)
 	}
@@ -63,12 +63,14 @@ func (e *Ext) FetchProduct(ctx context.Context, id string) (*ProductDTO, error) 
 	return &p, nil
 }
 
-func (e *Ext) ValidateUser(ctx context.Context, id string) (bool, error) {
-	out, err := e.User.ValidateUser(ctx, &userpb.ValidateUserRequest{Id: id})
+func (e *Ext) ValidateUser(ctx context.Context, userID string) (bool, error) {
+	ctx2, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	_, err := e.User.ValidateUser(ctx2, &userpb.ValidateUserRequest{Id: userID}, grpc.WaitForReady(true))
 	if err != nil {
 		return false, err
 	}
-	return out.GetOk(), nil
+	return true, nil
 }
 
 // Adjust stock by adding delta (delta can be negative)
@@ -86,7 +88,7 @@ func (e *Ext) AdjustStock(ctx context.Context, productID string, delta int) erro
 	url := e.ProductBaseURL + "/products/" + productID
 	req, _ := http.NewRequestWithContext(ctx, http.MethodPut, url, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	res, err := e.HTTP.Do(req)
+	res, err := e.doWithRetry(req)
 	if err != nil {
 		return fmt.Errorf("adjust %s: http error: %w", url, err)
 	}
@@ -103,4 +105,28 @@ func (e *Ext) AdjustStock(ctx context.Context, productID string, delta int) erro
 		}
 	}
 	return nil
+}
+
+// Helper to retry http requests
+func (e *Ext) doWithRetry(req *http.Request) (*http.Response, error) {
+	if e.HTTP == nil {
+		e.HTTP = &http.Client{Timeout: 5 * time.Second}
+	}
+
+	var lastErr error
+	for i := 0; i < 3; i++ {
+		res, err := e.HTTP.Do(req)
+		if err == nil {
+			if res.StatusCode >= 500 {
+				lastErr = fmt.Errorf("server error: %d", res.StatusCode)
+				_ = res.Body.Close()
+			} else {
+				return res, nil
+			}
+		} else {
+			lastErr = err
+		}
+		time.Sleep(time.Duration(100*(1<<i)) * time.Millisecond)
+	}
+	return nil, fmt.Errorf("after retries: %w", lastErr)
 }
