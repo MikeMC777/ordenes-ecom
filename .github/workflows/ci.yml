@@ -1,0 +1,117 @@
+name: CI & Docs & Release
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+env:
+  GO_VERSION: "1.21.x"
+  PROTO_DIR: "proto"
+  PROTO_FILE: "proto/user.proto"
+
+jobs:
+  build-test-and-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install system deps (protoc)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+
+      - name: Go mod download
+        run: go mod download
+
+      - name: Install tools (swag, protoc-gen-doc)
+        run: |
+          go install github.com/swaggo/swag/cmd/swag@v1.16.6
+          go install github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc@latest
+
+      - name: Generate Swagger (Product)
+        run: swag init -g cmd/product-service/main.go -o docs
+
+      - name: Generate Swagger (Order)
+        run: swag init -g cmd/order-service/main.go -o docs-order
+
+      - name: Generate gRPC docs (UserService)
+        run: |
+          mkdir -p docs-grpc
+          protoc -I "${{ env.PROTO_DIR }}" \
+            --doc_out=docs-grpc \
+            --doc_opt=markdown,UserService.md \
+            "${{ env.PROTO_FILE }}"
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test
+        run: go test ./... -count=1
+
+      - name: Upload artifacts (Swagger & gRPC docs & Postman)
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-docs-and-collections
+          path: |
+            docs/**
+            docs-order/**
+            docs-grpc/**
+            scripts/OrdenesEcom.postman_collection.json
+          if-no-files-found: warn
+
+  release:
+    needs: build-test-and-docs
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install system deps (protoc)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+
+      - name: Install tools (swag, protoc-gen-doc)
+        run: |
+          go install github.com/swaggo/swag/cmd/swag@v1.16.6
+          go install github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc@latest
+
+      - name: Generate Swagger & gRPC docs
+        run: |
+          swag init -g cmd/product-service/main.go -o docs
+          swag init -g cmd/order-service/main.go -o docs-order
+          mkdir -p docs-grpc
+          protoc -I "${{ env.PROTO_DIR }}" \
+            --doc_out=docs-grpc \
+            --doc_opt=markdown,UserService.md \
+            "${{ env.PROTO_FILE }}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            docs/**
+            docs-order/**
+            docs-grpc/**
+            scripts/OrdenesEcom.postman_collection.json
