@@ -145,3 +145,46 @@ AuthenticateUser, ValidateUser
 ## Postman Collection
 
 Saved in `scripts/OrdenesEcom.postman_collection.json`
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph Client
+    U[Postman / curl / Browser]
+  end
+
+  subgraph Docker_Network["Docker network (compose)"]
+    OS[order-service HTTP: 8082]
+    PS[product-service HTTP: 8081]
+    US[user-service gRPC: 50051]
+    DB[(PostgreSQL 16 ordenesdb)]
+    MIG[migrator goose]
+
+    U -->|HTTP /orders/*| OS
+    U -->|HTTP /products/*| PS
+
+    %% order -> product
+    OS -->|HTTP PRODUCT_SERVICE_BASEURL=http://product:8081| PS
+
+    %% order -> user
+    OS -->|gRPC USER_SERVICE_ADDR=user:50051| US
+
+    %% DB connections
+    OS ---|POSTGRES_DSN| DB
+    PS ---|POSTGRES_DSN| DB
+    US ---|POSTGRES_DSN| DB
+
+    %% migrations
+    MIG -->|goose up db/migrations| DB
+  end
+
+  %% Docs & health
+  classDef docs fill:#eef,stroke:#88a;
+  D1[[Swagger /docs]]:::docs
+  D2[[Swagger /docs]]:::docs
+  U --> D1
+  U --> D2
+  D1 -.->|http://localhost:8081/docs| PS
+  D2 -.->|http://localhost:8082/docs| OS
+```
