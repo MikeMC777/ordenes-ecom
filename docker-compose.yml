@@ -1,0 +1,84 @@
+version: "3.9"
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER:-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pass}
+      POSTGRES_DB:       ${POSTGRES_DB:-ordenesdb}
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-user} -d ${POSTGRES_DB:-ordenesdb}"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  migrator:
+    image: golang:1.21
+    depends_on:
+      db: { condition: service_healthy }
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER:-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pass}
+      POSTGRES_DB:       ${POSTGRES_DB:-ordenesdb}
+    command:
+      - /bin/sh
+      - -lc
+      - |
+        set -ex
+        DSN="postgres://$${POSTGRES_USER:-user}:$${POSTGRES_PASSWORD:-pass}@db:5432/$${POSTGRES_DB:-ordenesdb}?sslmode=disable"
+        /usr/local/go/bin/go env -w GOPROXY=https://proxy.golang.org,direct
+        # Install goose (version compatible with Go 1.21)
+        /usr/local/go/bin/go install github.com/pressly/goose/v3/cmd/goose@v3.24.1
+        # Run goose via absolute path (avoids PATH issues)
+        "$$(/usr/local/go/bin/go env GOPATH)"/bin/goose -v -dir ./db/migrations postgres "$$DSN" up
+
+  user:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args: { PKG: ./cmd/user-service }
+    environment:
+      USER_SERVICE_ADDR: ${USER_SERVICE_ADDR}
+      POSTGRES_DSN: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable
+    ports: ["${USER_SERVICE_PORT:-50051}:50051"]
+    depends_on:
+      db: { condition: service_healthy }
+      migrator: { condition: service_completed_successfully }
+
+  product:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args: { PKG: ./cmd/product-service }
+    environment:
+      PRODUCT_SERVICE_ADDR: ${PRODUCT_SERVICE_ADDR}
+      POSTGRES_DSN: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable
+    ports: ["${PRODUCT_HOST_PORT:-8081}:8081"]
+    depends_on:
+      db: { condition: service_healthy }
+      migrator: { condition: service_completed_successfully }
+
+  order:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args: { PKG: ./cmd/order-service }
+    environment:
+      ORDER_SERVICE_ADDR: ${ORDER_SERVICE_ADDR}
+      PRODUCT_SERVICE_BASEURL: ${PRODUCT_SERVICE_BASEURL:-http://product:8081}
+      USER_SERVICE_ADDR: user:50051
+      POSTGRES_DSN: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable
+    ports: ["${ORDER_HOST_PORT:-8082}:8082"]
+    depends_on:
+      db: { condition: service_healthy }
+      user: { condition: service_started }
+      product: { condition: service_started }
+      migrator: { condition: service_completed_successfully }
+
+volumes:
+  dbdata:

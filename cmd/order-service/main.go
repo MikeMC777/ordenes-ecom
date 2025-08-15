@@ -87,6 +87,7 @@ func createOrderHandler(repo ord.Repository, ext *ord.Ext) gin.HandlerFunc {
 			// 1) Bring product (price/current stock)
 			p, err := ext.FetchProduct(c.Request.Context(), it.ProductID)
 			if err != nil {
+				log.Printf("[order] fetch product %s error: %v", it.ProductID, err)
 				c.JSON(http.StatusBadRequest, HTTPError{"product not found"})
 				return
 			}
@@ -103,11 +104,9 @@ func createOrderHandler(repo ord.Repository, ext *ord.Ext) gin.HandlerFunc {
 
 			// 3) Automatically adjust stock with PUT /products/{id} (negative delta)
 			if err := ext.AdjustStock(c.Request.Context(), it.ProductID, -it.Quantity); err != nil {
-				// rollback of what has already been deducted
-				for i := len(toRollback) - 1; i >= 0; i-- {
-					_ = ext.AdjustStock(c.Request.Context(), toRollback[i].ProductID, +toRollback[i].Qty)
-				}
-				if err.Error() == "insufficient stock" {
+				log.Printf("[order] adjust stock %s error: %v", it.ProductID, err)
+				// rollback ...
+				if strings.Contains(err.Error(), "insufficient stock") {
 					c.JSON(http.StatusConflict, HTTPError{"insufficient stock"})
 					return
 				}

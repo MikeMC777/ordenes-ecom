@@ -5,8 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
+
+	"strings"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -37,23 +40,25 @@ func NewExt(userAddr, productBaseURL string) (*Ext, error) {
 	return &Ext{
 		HTTP:           &http.Client{Timeout: 5 * time.Second},
 		User:           userpb.NewUserServiceClient(conn),
-		ProductBaseURL: productBaseURL,
+		ProductBaseURL: strings.TrimRight(productBaseURL, "/"),
 	}, nil
 }
 
 func (e *Ext) FetchProduct(ctx context.Context, id string) (*ProductDTO, error) {
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/products/%s", e.ProductBaseURL, id), nil)
+	url := e.ProductBaseURL + "/products/" + id
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	res, err := e.HTTP.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetch %s: http error: %w", url, err)
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("product not found")
+		b, _ := io.ReadAll(io.LimitReader(res.Body, 256))
+		return nil, fmt.Errorf("fetch %s: status=%d body=%q", url, res.StatusCode, string(b))
 	}
 	var p ProductDTO
 	if err := json.NewDecoder(res.Body).Decode(&p); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("decode %s: %w", url, err)
 	}
 	return &p, nil
 }
@@ -71,32 +76,31 @@ func (e *Ext) ValidateUser(ctx context.Context, id string) (bool, error) {
 func (e *Ext) AdjustStock(ctx context.Context, productID string, delta int) error {
 	p, err := e.FetchProduct(ctx, productID)
 	if err != nil {
-		return fmt.Errorf("product not found")
+		return fmt.Errorf("adjust fetch: %w", err)
 	}
 	newStock := p.Stock + delta
 	if newStock < 0 {
 		return fmt.Errorf("insufficient stock")
 	}
 	body, _ := json.Marshal(map[string]int{"stock": newStock})
-	req, _ := http.NewRequestWithContext(ctx, http.MethodPut,
-		fmt.Sprintf("%s/products/%s", e.ProductBaseURL, productID),
-		bytes.NewReader(body),
-	)
+	url := e.ProductBaseURL + "/products/" + productID
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPut, url, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	res, err := e.HTTP.Do(req)
 	if err != nil {
-		return err
+		return fmt.Errorf("adjust %s: http error: %w", url, err)
 	}
 	defer res.Body.Close()
-
-	switch res.StatusCode {
-	case http.StatusOK:
-		return nil
-	case http.StatusNotFound:
-		return fmt.Errorf("product not found")
-	case http.StatusBadRequest:
-		return fmt.Errorf("invalid stock")
-	default:
-		return fmt.Errorf("update stock error: %s", res.Status)
+	if res.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(io.LimitReader(res.Body, 256))
+		switch res.StatusCode {
+		case http.StatusNotFound:
+			return fmt.Errorf("product not found (status=404 %s)", url)
+		case http.StatusBadRequest:
+			return fmt.Errorf("invalid stock body=%q (%s)", string(b), url)
+		default:
+			return fmt.Errorf("update stock error: status=%d body=%q url=%s", res.StatusCode, string(b), url)
+		}
 	}
+	return nil
 }
