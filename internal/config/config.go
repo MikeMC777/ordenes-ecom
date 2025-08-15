@@ -27,7 +27,7 @@ func Load() Config {
 	cfg := Config{
 		UserSvcAddr:       getenv("USER_SERVICE_ADDR", "localhost:50051"),
 		ProductSvcAddr:    getenv("PRODUCT_SERVICE_ADDR", ":8081"),
-		ProductSvcBaseURL: getenv("PRODUCT_SERVICE_BASEURL", "http://localhost:8081"),
+		ProductSvcBaseURL: getenv("PRODUCT_SERVICE_BASEURL", "http://product:8081"),
 		OrderSvcAddr:      getenv("ORDER_SERVICE_ADDR", ":8082"),
 		PostgresDSN:       getenv("POSTGRES_DSN", "postgres://user:pass@localhost:5432/ordenesdb?sslmode=disable"),
 	}
