@@ -1,0 +1,128 @@
+{
+  "info": {
+    "name": "OrdenesEcom",
+    "_postman_id": "b7b6ac8d-2baf-4f1f-9d0f-aaaa0000aaaa",
+    "description": "Colección HTTP para product-service y order-service",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "product_base", "value": "http://localhost:8081" },
+    { "key": "order_base",   "value": "http://localhost:8082" },
+    { "key": "product_id",   "value": "11111111-1111-1111-1111-111111111111" },
+    { "key": "order_id",     "value": "" },
+    { "key": "user_id",      "value": "" }
+  ],
+  "item": [
+    {
+      "name": "health-product",
+      "request": { "method": "GET", "url": "{{product_base}}/healthz" }
+    },
+    {
+      "name": "health-order",
+      "request": { "method": "GET", "url": "{{order_base}}/healthz" }
+    },
+    {
+      "name": "products - list (pagination only)",
+      "request": {
+        "method": "GET",
+        "url": "{{product_base}}/products?limit=10&offset=0"
+      }
+    },
+    {
+      "name": "products - search (q>=2)",
+      "request": {
+        "method": "GET",
+        "url": "{{product_base}}/products/search?q=mo&limit=10&offset=0"
+      }
+    },
+    {
+      "name": "products - get by id",
+      "request": {
+        "method": "GET",
+        "url": "{{product_base}}/products/{{product_id}}"
+      }
+    },
+    {
+      "name": "products - create",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Starter Kit\",\n  \"description\": \"Básico\",\n  \"price\": \"49.90\",\n  \"stock\": 10\n}"
+        },
+        "url": "{{product_base}}/products"
+      }
+    },
+    {
+      "name": "products - update",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Starter Kit+\",\n  \"price\": \"59.90\",\n  \"stock\": 8\n}"
+        },
+        "url": "{{product_base}}/products/{{product_id}}"
+      }
+    },
+    {
+      "name": "products - delete",
+      "request": {
+        "method": "DELETE",
+        "url": "{{product_base}}/products/{{product_id}}"
+      }
+    },
+    {
+      "name": "orders - create",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"items\": [\n    { \"product_id\": \"{{product_id}}\", \"quantity\": 2 }\n  ]\n}"
+        },
+        "url": "{{order_base}}/orders"
+      }
+    },
+    {
+      "name": "orders - get by id",
+      "request": {
+        "method": "GET",
+        "url": "{{order_base}}/orders/{{order_id}}"
+      }
+    },
+    {
+      "name": "orders - items",
+      "request": {
+        "method": "GET",
+        "url": "{{order_base}}/orders/{{order_id}}/items"
+      }
+    },
+    {
+      "name": "orders - list by user",
+      "request": {
+        "method": "GET",
+        "url": "{{order_base}}/orders/user/{{user_id}}?limit=10&offset=0"
+      }
+    },
+    {
+      "name": "orders - update status (shipped)",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{ \"status\": \"shipped\" }" },
+        "url": "{{order_base}}/orders/{{order_id}}/status"
+      }
+    },
+    {
+      "name": "orders - update status (canceled)",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{ \"status\": \"canceled\" }" },
+        "url": "{{order_base}}/orders/{{order_id}}/status"
+      }
+    }
+  ]
+}
